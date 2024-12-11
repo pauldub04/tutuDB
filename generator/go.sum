@@ -1,0 +1,11 @@
+github.com/brianvoe/gofakeit/v6 v6.28.0 h1:Xib46XXuQfmlLS2EXRuJpqcw8St6qSZz75OUo0tgAW4=
+github.com/brianvoe/gofakeit/v6 v6.28.0/go.mod h1:Xj58BMSnFqcn/fAQeSK+/PLtC5kSb7FJIq4JyGa8vEs=
+github.com/brianvoe/gofakeit/v7 v7.1.2 h1:vSKaVScNhWVpf1rlyEKSvO8zKZfuDtGqoIHT//iNNb8=
+github.com/brianvoe/gofakeit/v7 v7.1.2/go.mod h1:QXuPeBw164PJCzCUZVmgpgHJ3Llj49jSLVkKPMtxtxA=
+github.com/bxcodec/faker/v3 v3.8.1/go.mod h1:DdSDccxF5msjFo5aO4vrobRQ8nIApg8kq3QWPEQD6+o=
+github.com/bxcodec/faker/v4 v4.0.0-beta.3 h1:gqYNBvN72QtzKkYohNDKQlm+pg+uwBDVMN28nWHS18k=
+github.com/bxcodec/faker/v4 v4.0.0-beta.3/go.mod h1:m6+Ch1Lj3fqW/unZmvkXIdxWS5+XQWPWxcbbQW2X+Ho=
+github.com/lib/pq v1.10.9 h1:YXG7RB+JIjhP29X+OtkiDnYaXQwpS4JEWq7dtCCRUEw=
+github.com/lib/pq v1.10.9/go.mod h1:AlVN5x4E4T544tWzH6hKfbfQvm3HdbOxrmggDNAPY9o=
+golang.org/x/text v0.21.0 h1:zyQAAkrwaneQ066sspRyJaG9VNi/YJ1NfzcGB3hZ/qo=
+golang.org/x/text v0.21.0/go.mod h1:4IBbMaMmOPCJ8SecivzSH54+73PCFmPWxNTLm+vZkEQ=

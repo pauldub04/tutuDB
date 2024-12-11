@@ -5,7 +5,7 @@ CREATE TABLE schedules (
     route_id INT,
     departure_time TIMESTAMP,
     arrival_time TIMESTAMP,
-    days_of_week VARCHAR(7),
+    days_of_week VARCHAR(20),
     transport_id INT,
     FOREIGN KEY (route_id) REFERENCES routes(route_id),
     FOREIGN KEY (transport_id) REFERENCES transport(transport_id)
