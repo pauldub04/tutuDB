@@ -1,10 +1,14 @@
 package main
 
 import (
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"math/rand"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -67,17 +71,17 @@ func generateOperators(db *sql.DB, count int) {
 }
 
 func randomVehicleType() string {
-	countries := []string{"Самолет", "Поезд", "Автобус"}
+	countries := []string{"Plane", "Train", "Bus"}
 	return countries[rand.Intn(len(countries))]
 }
 
 func randomVehicleModel(vehicle string) string {
 	planes := []string{"Airbus A320", "Boeing 737", "Sukhoi Superjet 100", "Airbus A380", "Boeing 747", "Boeing 777", "Airbus A350", "Boeing 787", "Embraer E-Jet", "Bombardier CRJ", "Antonov An-148", "Tupolev Tu-204", "Ilyushin Il-96", "McDonnell Douglas MD-80", "Airbus A330", "Boeing 767", "Airbus A340", "Boeing 757", "Airbus A310", "Boeing 727", "Boeing 737 MAX", "Boeing 717", "Boeing 737"}
-	trains := []string{"Сапсан", "Ласточка", "Электричка", "Скоростной поезд", "Тепловоз", "Скорый поезд"}
-	buses := []string{"МАЗ", "ЛиАЗ", "ПАЗ", "ГАЗ", "НЕФАЗ", "КАВЗ", "Богдан", "Мерседес"}
-	if vehicle == "Самолет" {
+	trains := []string{"Sapsan", "Swallow", "Electric train", "High-speed train", "Locomotive", "Express train"}
+	buses := []string{"MAZ", "LiAZ", "PAZ", "GAZ", "NEFAZ", "KAVZ", "Bogdan", "Mercedes"}
+	if vehicle == "Plane" {
 		return planes[rand.Intn(len(planes))]
-	} else if vehicle == "Поезд" {
+	} else if vehicle == "Train" {
 		return trains[rand.Intn(len(trains))]
 	} else {
 		return buses[rand.Intn(len(buses))]
@@ -124,9 +128,11 @@ func generateStations(db *sql.DB, count int) {
 	}
 
 	for stationsCount < count {
-		name := gofakeit.Word()
 		city := gofakeit.City()
-		stationType := gofakeit.BuzzWord()
+		adj := gofakeit.Adjective()
+		adj = strings.ToUpper(adj[:1]) + strings.ToLower(adj[1:])
+		name := city + " " + adj + " Station"
+		stationType := randomVehicleType()
 		latitude := fmt.Sprintf("%.6f", gofakeit.Latitude())
 		longitude := fmt.Sprintf("%.6f", gofakeit.Longitude())
 
@@ -166,13 +172,34 @@ func generateRoutes(db *sql.DB, count int) {
 	for routesCount < count {
 		startStationID := rand.Intn(stationsCount) + 1
 		endStationID := rand.Intn(stationsCount) + 1
+		transportType := randomVehicleType()
 
 		if startStationID == endStationID {
 			continue
 		}
 
+		var startStationType string
+		err = db.QueryRow(`SELECT type FROM stations WHERE station_id = ` + strconv.Itoa(startStationID)).Scan(&startStationType)
+		if err != nil {
+			continue
+		}
+		var endStationType string
+		err = db.QueryRow(`SELECT type FROM stations WHERE station_id = ` + strconv.Itoa(endStationID)).Scan(&endStationType)
+		if err != nil {
+			continue
+		}
+
+		if transportType != startStationType || startStationType != endStationType {
+			continue
+		}
+
+		var operatorCount int
+		err = db.QueryRow(`SELECT COUNT(*) FROM operators`).Scan(&operatorCount)
+		if err != nil {
+			log.Fatal(err)
+		}
+
 		duration := gofakeit.Number(30, 720)
-		transportType := randomVehicleType()
 		operatorID := rand.Intn(operatorCount) + 1
 
 		_, err := db.Exec(`INSERT INTO routes (start_station_id, end_station_id, duration, transport_type, operator_id) VALUES ($1, $2, $3, $4, $5)`,
@@ -197,13 +224,26 @@ func randomTime() time.Time {
 	return now.AddDate(0, 0, randomDays).Add(time.Duration(randomHours)*time.Hour + time.Duration(randomMinutes)*time.Minute)
 }
 
+func indexOf(slice []string, item string) int {
+	for i, v := range slice {
+		if v == item {
+			return i
+		}
+	}
+	return -1
+}
+
 func randomDaysOfWeek() string {
 	days := []string{"Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"}
 	count := gofakeit.Number(1, 7)
 	rand.Shuffle(len(days), func(i, j int) {
 		days[i], days[j] = days[j], days[i]
 	})
-	return strings.Join(days[:count], "")
+	selectedDays := days[:count]
+	sort.Slice(selectedDays, func(i, j int) bool {
+		return indexOf(days, selectedDays[i]) < indexOf(days, selectedDays[j])
+	})
+	return strings.Join(selectedDays, ",")
 }
 
 func generateSchedules(db *sql.DB, count int) {
@@ -229,7 +269,7 @@ func generateSchedules(db *sql.DB, count int) {
 		routeID := rand.Intn(routesCount) + 1
 		transportID := rand.Intn(transportCount) + 1
 
-		departureTime := randomTime()
+		departureTime := gofakeit.DateRange(time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2024, 12, 31, 0, 0, 0, 0, time.UTC))
 		duration := gofakeit.Number(30, 720)
 		arrivalTime := departureTime.Add(time.Duration(duration) * time.Minute)
 		daysOfWeek := randomDaysOfWeek()
@@ -256,7 +296,7 @@ func generatePromotions(db *sql.DB, count int) {
 	}
 
 	for promotionsCount < count {
-		name := gofakeit.Sentence(3)
+		name := gofakeit.Company() + strings.ToLower(gofakeit.Sentence(2))
 		discount := gofakeit.Float64Range(5.00, 50.00)
 		startDate := gofakeit.Date()
 		endDate := startDate.AddDate(0, 0, gofakeit.Number(7, 30))
@@ -276,6 +316,11 @@ func generatePromotions(db *sql.DB, count int) {
 	fmt.Println("Promotions: ", promotionsCount)
 }
 
+func hashPassword(password string) string {
+	hash := sha256.Sum256([]byte(password))
+	return hex.EncodeToString(hash[:])
+}
+
 func generateUsers(db *sql.DB, count int) {
 	var usersCount int
 	err := db.QueryRow(`SELECT COUNT(*) FROM users`).Scan(&usersCount)
@@ -287,11 +332,12 @@ func generateUsers(db *sql.DB, count int) {
 		name := gofakeit.Name()
 		email := gofakeit.Email()
 		password := gofakeit.Password(true, true, true, true, false, 12)
-		phone := gofakeit.Phone()
-		createdAt := gofakeit.Date()
 
-		_, err := db.Exec(`INSERT INTO users (name, email, password, phone, created_at) VALUES ($1, $2, $3, $4, $5)`,
-			name, email, password, phone, createdAt)
+		phone := gofakeit.Phone()
+		createdAt := gofakeit.DateRange(time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2024, 12, 31, 0, 0, 0, 0, time.UTC))
+		hashedPassword := hashPassword(password)
+		_, err = db.Exec(`INSERT INTO users (name, email, password, phone, created_at) VALUES ($1, $2, $3, $4, $5)`,
+			name, email, hashedPassword, phone, createdAt)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -304,6 +350,11 @@ func generateUsers(db *sql.DB, count int) {
 	fmt.Println("Users: ", usersCount)
 }
 
+func randomDocumentType() string {
+	documentTypes := []string{"Passport", "Driver's license", "International passport"}
+	return documentTypes[rand.Intn(len(documentTypes))]
+}
+
 func generatePassengers(db *sql.DB, count int) {
 	var passengersCount int
 	err := db.QueryRow(`SELECT COUNT(*) FROM passengers`).Scan(&passengersCount)
@@ -311,14 +362,17 @@ func generatePassengers(db *sql.DB, count int) {
 		log.Fatal(err)
 	}
 
-	documentTypes := []string{"Паспорт", "Водительское удостоверение", "Заграничный паспорт"}
-
 	for passengersCount < count {
 		firstName := gofakeit.FirstName()
 		lastName := gofakeit.LastName()
-		birthDate := gofakeit.DateRange(time.Date(1950, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2015, 12, 31, 0, 0, 0, 0, time.UTC))
-		documentType := documentTypes[rand.Intn(len(documentTypes))]
-		documentNumber := gofakeit.Number(100000, 999999)
+		birthDate := gofakeit.DateRange(time.Date(1950, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2024, 12, 31, 0, 0, 0, 0, time.UTC))
+		documentType := randomDocumentType()
+		documentNumber := gofakeit.Number(10000000000, 99999999999)
+		if documentType == "Passport" {
+			documentNumber /= 10000
+		} else if documentType == "Driver's license" {
+			documentNumber /= 100
+		}
 
 		_, err := db.Exec(`INSERT INTO passengers (first_name, last_name, birth_date, document_type, document_number) VALUES ($1, $2, $3, $4, $5)`,
 			firstName, lastName, birthDate, documentType, documentNumber)
@@ -391,8 +445,15 @@ func generateTicketsAndPayments(db *sql.DB, count int) {
 
 		amount := price
 		paymentDate := purchaseDate.Add(time.Duration(gofakeit.Number(0, 2)) * time.Hour)
-		paymentMethod := gofakeit.RandomString([]string{"Наличными", "Картой", "Онлайн"})
-		status := "Оплачено"
+		paymentMethod := gofakeit.RandomString([]string{"Cash", "Card", "Online"})
+		status := "Paid"
+		if gofakeit.Int()%300 == 0 {
+			status = "Refunded"
+		} else if gofakeit.Int()%500 == 0 {
+			status = "Pending"
+		} else if gofakeit.Int()%1000 == 0 {
+			status = "Canceled"
+		}
 
 		_, err = db.Exec(`
             INSERT INTO payments (ticket_id, amount, payment_date, payment_method, status)
@@ -433,8 +494,8 @@ func generateFeedback(db *sql.DB, count int) {
 		userID := rand.Intn(usersCount) + 1
 		routeID := rand.Intn(routesCount) + 1
 		rating := gofakeit.Number(1, 5)
-		comment := gofakeit.Paragraph(1, 2, 5, " ")
-		createdAt := gofakeit.Date()
+		comment := gofakeit.Sentence(gofakeit.Number(10, 100))
+		createdAt := gofakeit.DateRange(time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2024, 12, 31, 0, 0, 0, 0, time.UTC))
 
 		_, err := db.Exec(`INSERT INTO feedback (user_id, route_id, rating, comment, created_at) VALUES ($1, $2, $3, $4, $5)`,
 			userID, routeID, rating, comment, createdAt)
@@ -461,7 +522,7 @@ func main() {
 	generateSchedules(db, 5000)
 	generatePromotions(db, 100)
 	generateUsers(db, 5000)
-	generatePassengers(db, 10000)
+	generatePassengers(db, 50000)
 	generateTicketsAndPayments(db, 7000)
 	generateFeedback(db, 1000)
 

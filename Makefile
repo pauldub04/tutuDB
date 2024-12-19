@@ -49,6 +49,7 @@ goose-down-all:
 	@goose -dir $(MIGRATIONS) $(GOOSE_DRIVER) $(DB_STRING) down-to 0
 
 goose-restart: goose-down-all goose-up
+	cd generator && go run main.go
 
 goose-status:
 	@goose -dir $(MIGRATIONS) $(GOOSE_DRIVER) $(DB_STRING) status
